@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#3F51B5</color>
+    <color name="colorPrimaryDark">#303F9F</color>
+    <color name="colorAccent">#FF4081</color>
+
+    <color name="toast_bg_color">#cc000000</color>
+    <color name="window_background">#FFF5F5F5</color>
+    <color name="theme_black_7f">#8f000000</color>
+    <color name="transparent">#00000000</color>
+
+    <color name="main_color">#D8BFD8</color>
+    <color name="edt_stroke_grey">#999999</color>
+    <color name="bg_grey">#e6e6e6</color>
+
+    <color name="trans">#00000000</color>
+    <color name="white">#ffffff</color>
+    <color name="black_50">#80000000</color>
+    <color name="black">#000000</color>
+    <color name="green">#00FF00</color>
+    <color name="deep_purple">#800080</color>
+
+    <color name="text_system">#8A000000</color>
+    <color name="text_9b9b9b">#9b9b9b</color>
+    <color name="text_999999">#999999</color>
+    <color name="text_4d4d4d">#4d4d4d</color>
+    <color name="bg_14BD91">#14BD91</color>
+    <color name="bg_006349">#006349</color>
+    <color name="text_14BD91">#14BD91</color>
+    <color name="text_888888">#888888</color>
+    <color name="text_222222">#222222</color>
+    <color name="text_666666">#666666</color>
+    <color name="bg_89F0D3">#89f0d3</color>
+    <color name="bg_4CBDE7">#4cbde7</color>
+    <color name="text_444444">#444444</color>
+    <color name="text_aaaaaa">#aaaaaa</color>
+    <color name="bg_dddddd">#dddddd</color>
+    <color name="text_c7c7c7">#c7c7c7</color>
+    <color name="bg_c7c7c7">#c7c7c7</color>
+</resources>
