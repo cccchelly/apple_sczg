@@ -22,6 +22,7 @@ import com.sczg.apple.ui.fragment.TakePhotoFragment;
 import com.sczg.apple.utils.ActivityBrightnessManager;
 import com.sczg.apple.utils.TaskServiceUtil;
 import com.sczg.apple.view.AppTabView;
+import com.orhanobut.logger.Logger;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
@@ -75,7 +76,15 @@ public class MainActivity extends BaseActivity<MainPresenter, IMainView> impleme
 
 
     private void initListener() {
+        if (mAppTabView == null) {
+            return;
+        }
+        
         mAppTabView.setOnSelectedChangeListener((view, position) -> {
+            if (mTakePhotoFragment == null || mSettingFragment == null || mAboutUsFragment == null) {
+                return;
+            }
+            
             FragmentTransaction transaction = MainActivity.this.getSupportFragmentManager().beginTransaction();
             transaction.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_OPEN);
             switch (position) {
@@ -106,21 +115,37 @@ public class MainActivity extends BaseActivity<MainPresenter, IMainView> impleme
         FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
         transaction.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_OPEN);
         int currentTabPosition = 0;
+        
         if (savedInstanceState != null) {
             mTakePhotoFragment = (TakePhotoFragment) getSupportFragmentManager().findFragmentByTag("TakePhotoFragment");
             mSettingFragment = (SettingFragment) getSupportFragmentManager().findFragmentByTag("SettingFragment");
             mAboutUsFragment = (AboutUsFragment) getSupportFragmentManager().findFragmentByTag("AboutUsFragment");
             currentTabPosition = savedInstanceState.getInt(AppContants.HOME_TAB_INDEX);
+            
+            // 如果恢复失败，创建新的Fragment实例
+            if (mTakePhotoFragment == null) {
+                mTakePhotoFragment = new TakePhotoFragment();
+                transaction.add(R.id.fl_container, mTakePhotoFragment, "TakePhotoFragment");
+            }
+            if (mSettingFragment == null) {
+                mSettingFragment = new SettingFragment();
+                transaction.add(R.id.fl_container, mSettingFragment, "SettingFragment");
+            }
+            if (mAboutUsFragment == null) {
+                mAboutUsFragment = new AboutUsFragment();
+                transaction.add(R.id.fl_container, mAboutUsFragment, "AboutUsFragment");
+            }
         } else {
             mTakePhotoFragment = new TakePhotoFragment();
             mSettingFragment = new SettingFragment();
             mAboutUsFragment = new AboutUsFragment();
+            
             transaction.add(R.id.fl_container, mTakePhotoFragment, "TakePhotoFragment");
             transaction.add(R.id.fl_container, mSettingFragment, "SettingFragment");
             transaction.add(R.id.fl_container, mAboutUsFragment, "AboutUsFragment");
         }
+        
         transaction.commit();
-
         initListener();
         mAppTabView.setSelectPosition(currentTabPosition);
     }
@@ -171,10 +196,9 @@ public class MainActivity extends BaseActivity<MainPresenter, IMainView> impleme
 
     @OnClick({R.id.main_tv_title})
     public void onViewClicked(View view) {
-        switch (view.getId()) {
-            case R.id.main_tv_title:
-                ActivityBrightnessManager.setScreenBrightness(0);
-                break;
+        int id = view.getId();
+        if (id == R.id.main_tv_title) {
+            ActivityBrightnessManager.setScreenBrightness(0);
         }
     }
 }

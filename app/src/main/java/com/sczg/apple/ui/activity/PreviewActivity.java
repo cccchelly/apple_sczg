@@ -15,6 +15,8 @@ import com.sczg.apple.base.BaseActivity;
 import com.sczg.apple.camrea.CameraNormalManager;
 import com.sczg.apple.presenter.PreviewPresenter;
 import com.sczg.apple.presenter.viewImpl.IPreviewView;
+import com.sczg.apple.utils.BitmapCompressUtil;
+import com.sczg.apple.utils.LogUtil;
 
 import androidx.annotation.Nullable;
 import butterknife.BindView;
@@ -44,7 +46,29 @@ public class PreviewActivity extends BaseActivity<PreviewPresenter, IPreviewView
                 LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT);
                 imageView.setLayoutParams(params);
-                imageView.setImageBitmap(bitmap);
+                
+                // 检查并压缩图片以避免GPU纹理限制
+                if (bitmap != null) {
+                    LogUtil.i("PreviewActivity: 原始图片尺寸 " + bitmap.getWidth() + "x" + bitmap.getHeight());
+                    
+                    if (BitmapCompressUtil.isExceedTextureLimit(bitmap)) {
+                        LogUtil.i("PreviewActivity: 图片尺寸超出GPU限制，开始压缩处理");
+                        android.graphics.Bitmap compressedBitmap = BitmapCompressUtil.compressBitmapForDisplay(bitmap);
+                        if (compressedBitmap != null) {
+                            LogUtil.i("PreviewActivity: 图片压缩成功，新尺寸: " + compressedBitmap.getWidth() + "x" + compressedBitmap.getHeight());
+                            imageView.setImageBitmap(compressedBitmap);
+                        } else {
+                            LogUtil.e("PreviewActivity: 图片压缩失败，使用原始图片");
+                            imageView.setImageBitmap(bitmap);
+                        }
+                    } else {
+                        LogUtil.i("PreviewActivity: 图片尺寸在GPU限制内，无需压缩");
+                        imageView.setImageBitmap(bitmap);
+                    }
+                } else {
+                    LogUtil.e("PreviewActivity: 接收到的bitmap为空");
+                }
+                
                 glViewGroup.addView(imageView);
             }
         }));

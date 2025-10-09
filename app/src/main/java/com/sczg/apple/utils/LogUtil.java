@@ -10,35 +10,63 @@ public class LogUtil {
     private static boolean LOGE = true;
 
     public static void v(String mess) {
-        if (LOGV) { Log.v(getTag(), mess); }
+        if (LOGV) { 
+            String message = (mess != null) ? mess : "";
+            Log.v(getTag(), message); 
+        }
     }
     public static void d(String mess) {
-        if (LOGD) { Log.d(getTag(), mess); }
+        if (LOGD) { 
+            String message = (mess != null) ? mess : "";
+            Log.d(getTag(), message); 
+        }
     }
     public static void i(String mess) {
-        if (LOGI) { Log.i(getTag(), mess); }
+        if (LOGI) { 
+            String message = (mess != null) ? mess : "";
+            Log.i(getTag(), message); 
+        }
     }
     public static void w(String mess) {
-        if (LOGW) { Log.w(getTag(), mess); }
+        if (LOGW) { 
+            String message = (mess != null) ? mess : "";
+            Log.w(getTag(), message); 
+        }
     }
     public static void e(String mess) {
-        if (LOGE) { Log.e(getTag(), mess); }
+        if (LOGE) { 
+            String message = (mess != null) ? mess : "";
+            Log.e(getTag(), message); 
+        }
     }
 
     private static String getTag() {
-        StackTraceElement[] trace = new Throwable().fillInStackTrace()
-                .getStackTrace();
-        String callingClass = "";
-        for (int i = 2; i < trace.length; i++) {
-            Class<?> clazz = trace[i].getClass();
-            if (!clazz.equals(LogUtil.class)) {
-                callingClass = trace[i].getClassName();
-                callingClass = callingClass.substring(callingClass
-                        .lastIndexOf('.') + 1);
-                break;
+        try {
+            StackTraceElement[] trace = new Throwable().fillInStackTrace()
+                    .getStackTrace();
+            if (trace == null || trace.length <= 2) {
+                return "LogUtil";
             }
+            
+            String callingClass = "LogUtil";
+            for (int i = 2; i < trace.length; i++) {
+                StackTraceElement element = trace[i];
+                if (element != null) {
+                    String className = element.getClassName();
+                    if (className != null && !className.equals(LogUtil.class.getName())) {
+                        callingClass = className;
+                        if (callingClass.contains(".")) {
+                            callingClass = callingClass.substring(callingClass
+                                    .lastIndexOf('.') + 1);
+                        }
+                        break;
+                    }
+                }
+            }
+            return (callingClass != null && !callingClass.isEmpty()) ? callingClass : "LogUtil";
+        } catch (Exception e) {
+            return "LogUtil";
         }
-        return callingClass;
     }
 
 }

@@ -54,6 +54,9 @@ public abstract class BaseFragment <T extends BasePresenter<V>,V extends BaseMvp
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        if (mContext == null) {
+            return;
+        }
 
         mNetLoadingHelper = new NetLoadingHelper(mContext);
         if (getStatusTargetView() != null) {
@@ -148,13 +151,18 @@ public abstract class BaseFragment <T extends BasePresenter<V>,V extends BaseMvp
 
     @Override
     public void showLoadingView(String showText){
-        mNetLoadingHelper.showLoadingView(showText);
+        if (mNetLoadingHelper != null) {
+            String text = (showText != null) ? showText : "";
+            mNetLoadingHelper.showLoadingView(text);
+        }
     }
 
 
     @Override
     public void dissmissLoadingView(){
-        mNetLoadingHelper.dissLoadingView();
+        if (mNetLoadingHelper != null) {
+            mNetLoadingHelper.dissLoadingView();
+        }
     }
 
     @Override
@@ -183,7 +191,8 @@ public abstract class BaseFragment <T extends BasePresenter<V>,V extends BaseMvp
 
     @Override
     public void showException(String msg) {
-        ToastUtils.showToast(msg);
+        String message = (msg != null) ? msg : "发生未知异常";
+        ToastUtils.showToast(message);
     }
 
     @Override

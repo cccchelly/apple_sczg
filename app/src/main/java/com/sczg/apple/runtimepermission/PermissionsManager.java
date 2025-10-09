@@ -258,35 +258,62 @@ public class PermissionsManager {
 
         @Override
         public void onGranted() {
-            action.onGranted();
+            if (action != null) {
+                action.onGranted();
+            }
         }
 
         @Override
         public void onDenied(final String permission) {
+            if (act == null) {
+                return;
+            }
 
-            AlertDialog dialog = new AlertDialog.Builder(act)
-                    .setMessage("申请权限异常，将影响App正常运作，点击确定进入权限管理")
-                    .setPositiveButton("确定", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            try {
-                                Intent intent = new Intent();
-                                intent.setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                                intent.setData(Uri.fromParts("package", act.getPackageName(), null));
-                                act.startActivity(intent);
-                            } catch (ActivityNotFoundException ignore) {
-                                dialog.dismiss();
+            try {
+                AlertDialog dialog = new AlertDialog.Builder(act)
+                        .setMessage("申请权限异常，将影响App正常运作，点击确定进入权限管理")
+                        .setPositiveButton("确定", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                try {
+                                    if (act != null) {
+                                        Intent intent = new Intent();
+                                        intent.setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                                        String packageName = act.getPackageName();
+                                        if (packageName != null && !packageName.isEmpty()) {
+                                            intent.setData(Uri.fromParts("package", packageName, null));
+                                            act.startActivity(intent);
+                                        }
+                                    }
+                                } catch (ActivityNotFoundException ignore) {
+                                    if (dialog != null) {
+                                        dialog.dismiss();
+                                    }
+                                } catch (Exception e) {
+                                    if (dialog != null) {
+                                        dialog.dismiss();
+                                    }
+                                }
                             }
-                        }
-                    })
-                    .setNegativeButton("取消", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            dialog.dismiss();
-                            action.onDenied(permission);
-                        }
-                    }).create();
-            //dialog.show();
+                        })
+                        .setNegativeButton("取消", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                if (dialog != null) {
+                                    dialog.dismiss();
+                                }
+                                if (action != null) {
+                                    action.onDenied(permission);
+                                }
+                            }
+                        }).create();
+                //dialog.show();
+            } catch (Exception e) {
+                // 如果创建对话框失败，直接调用原始action的onDenied方法
+                if (action != null) {
+                    action.onDenied(permission);
+                }
+            }
         }
     }
 

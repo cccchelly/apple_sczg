@@ -407,6 +407,9 @@ public class FileUtils {
      * @return
      */
     public static String getFileType(String fileName, int pointIndex) {
+        if (fileName == null || pointIndex < 0 || pointIndex >= fileName.length() - 1) {
+            return "ic_file_unknown";
+        }
         String type = fileName.substring(pointIndex + 1).toLowerCase();
         if ("m4a".equalsIgnoreCase(type) || "xmf".equalsIgnoreCase(type) || "ogg".equalsIgnoreCase(type) || "wav".equalsIgnoreCase(type)
                 || "m4a".equalsIgnoreCase(type) || "aiff".equalsIgnoreCase(type) || "midi".equalsIgnoreCase(type)
@@ -514,6 +517,9 @@ public class FileUtils {
     public static String getMIMEType(File f) {
         String type = "";
         String fName = f.getName();
+        if (fName == null || !fName.contains(".")) {
+            return type;
+        }
         /* 取得扩展名 */
         String end = fName.substring(fName.lastIndexOf(".") + 1, fName.length()).toLowerCase();
 

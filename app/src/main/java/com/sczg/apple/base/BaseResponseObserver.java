@@ -110,11 +110,14 @@ public abstract class BaseResponseObserver<T extends ResponseBody> implements Ob
     protected void onDataFailure(T response) {
         String msg = null;
         try {
-            msg = response.string();
+            if (response != null) {
+                msg = response.string();
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
-        Logger.w("request data but get failure:" + msg);
+        String logMsg = (msg != null) ? msg : "null";
+        Logger.w("request data but get failure:" + logMsg);
         if (!TextUtils.isEmpty(msg)) {
             //            mBaseMvpView.showException(response.getMsg());
             Toast.makeText(App.getAppContext(), msg, Toast.LENGTH_SHORT).show();

@@ -117,21 +117,29 @@ public abstract class PermissionsResultAction {
         mPermissions.remove(permission);
         if (result == Permissions.GRANTED) {
             if (mPermissions.isEmpty()) {
-                new Handler(mLooper).post(new Runnable() {
-                    @Override
-                    public void run() {
-                        onGranted();
-                    }
-                });
+                if (mLooper != null) {
+                    new Handler(mLooper).post(new Runnable() {
+                        @Override
+                        public void run() {
+                            onGranted();
+                        }
+                    });
+                } else {
+                    onGranted();
+                }
                 return true;
             }
         } else if (result == Permissions.DENIED) {
-            new Handler(mLooper).post(new Runnable() {
-                @Override
-                public void run() {
-                    onDenied(permission);
-                }
-            });
+            if (mLooper != null) {
+                new Handler(mLooper).post(new Runnable() {
+                    @Override
+                    public void run() {
+                        onDenied(permission);
+                    }
+                });
+            } else {
+                onDenied(permission);
+            }
             return true;
         } else if (result == Permissions.NOT_FOUND) {
             if (shouldIgnorePermissionNotFound(permission)) {

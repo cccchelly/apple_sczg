@@ -6,7 +6,6 @@ import android.graphics.Bitmap;
 
 import androidx.multidex.MultiDexApplication;
 
-import com.facebook.imagepipeline.request.ImageRequest;
 import com.sczg.apple.utils.MyLifecycleHandler;
 import com.alibaba.android.arouter.launcher.ARouter;
 import com.facebook.drawee.backends.pipeline.Fresco;
@@ -77,4 +76,5 @@ public class App extends MultiDexApplication {
                 .build();
         Fresco.initialize(this, config);
     }
+
 }

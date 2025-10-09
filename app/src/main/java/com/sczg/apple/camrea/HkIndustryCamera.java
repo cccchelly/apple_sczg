@@ -15,6 +15,7 @@ import com.sczg.apple.utils.ImageUtils;
 import com.sczg.apple.utils.LogUtil;
 import com.sczg.apple.utils.PermissionUtil;
 import com.sczg.apple.utils.TimeUtils;
+import com.orhanobut.logger.Logger;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -32,11 +33,17 @@ public class HkIndustryCamera implements ICamera {
     private String from = AppContants.CaptureSource.CAPTURE_SOURCE_TASK;
     private boolean isPreview = false;
     private boolean isCapture = false;
+    private boolean isCaptureCompleted = false; // 防止重复抓图的标志位
+    private boolean isFirstFrameReceived = false; // 是否已经获取到第一帧的标志位
 
     CaptureListener onCaptureListener;
     PreviewListener previewListener;
+    CameraInitListener onCameraInitListener;
     //private int nDataSize = 30 * 1024 * 1024;        // 预设的图像数据大小
     private int nDataSize = 4096 * 2048 * 3;        // 预设的图像数据大小
+    
+    // 可调整的抓图延迟时间（毫秒）
+    private long captureDelayMs = 5000; // 默认5秒
 
     private int selectDeviceNum = 0;
     private ArrayList<MvCameraControlDefines.MV_CC_DEVICE_INFO> deviceList = new ArrayList<>();
@@ -47,15 +54,27 @@ public class HkIndustryCamera implements ICamera {
 
     @Override
     public void initCamera() {
+        // 重置第一帧标志
+        isFirstFrameReceived = false;
+        
+        // 通知初始化开始
+        if (onCameraInitListener != null) {
+            onCameraInitListener.onInitStart();
+        }
+        
         PermissionUtil.SetUSBPermission();
         PermissionUtil.SetUSBMemory();
+        
         // 获取读写权限
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.LOLLIPOP) {
             if (ActivityCompat.checkSelfPermission(App.getAppContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                // 存储权限未授予
             }
         }
+        
         cameraManager = new HkCameraManager();
-        refreshMsg("SDK版本：" + cameraManager.GetSDKVersion());
+        String sdkVersion = cameraManager.GetSDKVersion();
+        refreshMsg("SDK版本：" + sdkVersion);
 
         int nTransLayers = MvCameraControl.MV_CC_EnumerateTls();
         if (nTransLayers == MvCameraControlDefines.MV_GIGE_DEVICE) {
@@ -68,46 +87,75 @@ public class HkIndustryCamera implements ICamera {
 
         selectDeviceNum = 0;
         deviceList.clear();
+        
         try {
             deviceList = cameraManager.enumDevice();
         } catch (CameraControlException e) {
             e.printStackTrace();
             deviceList = null;
-            refreshMsg(e.errMsg + e.errCode);
+            String errMsg = (e.errMsg != null) ? e.errMsg : "未知错误";
+            String errCode = String.valueOf(e.errCode);
+            refreshMsg(errMsg + errCode);
             return;
         }
+        
         if (deviceList != null) {
             int size = deviceList.size();
+            // 通知设备枚举完成
+            if (onCameraInitListener != null) {
+                onCameraInitListener.onDeviceEnumerated(size);
+            }
             if (size > 0) {
                 List<String> deviceName = new ArrayList<>();
                 for (int i = 0; i < size; i++) {
                     MvCameraControlDefines.MV_CC_DEVICE_INFO entity = deviceList.get(i);
                     if (entity.transportLayerType == MvCameraControlDefines.MV_GIGE_DEVICE) {
+                        String manufacturerName = (entity.gigEInfo.manufacturerName != null) ? entity.gigEInfo.manufacturerName : "";
+                        String serialNumber = (entity.gigEInfo.serialNumber != null) ? entity.gigEInfo.serialNumber : "";
+                        String deviceVersion = (entity.gigEInfo.deviceVersion != null) ? entity.gigEInfo.deviceVersion : "";
+                        String userDefinedName = (entity.gigEInfo.userDefinedName != null) ? entity.gigEInfo.userDefinedName : "";
                         String str = "[" + i + "]"
-                                + entity.gigEInfo.manufacturerName + "--"
-                                + entity.gigEInfo.serialNumber + "--"
-                                + entity.gigEInfo.deviceVersion + "--"
-                                + entity.gigEInfo.userDefinedName;
+                                + manufacturerName + "--"
+                                + serialNumber + "--"
+                                + deviceVersion + "--"
+                                + userDefinedName;
                         deviceName.add(str);
                     } else {
+                        String manufacturerName = (entity.usb3VInfo.manufacturerName != null) ? entity.usb3VInfo.manufacturerName : "";
+                        String serialNumber = (entity.usb3VInfo.serialNumber != null) ? entity.usb3VInfo.serialNumber : "";
+                        String deviceVersion = (entity.usb3VInfo.deviceVersion != null) ? entity.usb3VInfo.deviceVersion : "";
+                        String userDefinedName = (entity.usb3VInfo.userDefinedName != null) ? entity.usb3VInfo.userDefinedName : "";
                         String str = "[" + i + "]"
-                                + entity.usb3VInfo.manufacturerName + "--"
-                                + entity.usb3VInfo.serialNumber + "--"
-                                + entity.usb3VInfo.deviceVersion + "--"
-                                + entity.usb3VInfo.userDefinedName;
+                                + manufacturerName + "--"
+                                + serialNumber + "--"
+                                + deviceVersion + "--"
+                                + userDefinedName;
                         deviceName.add(str);
                     }
                 }
             } else {
                 refreshMsg("未枚举到设备");
+                // 通知设备枚举完成，但没有发现设备
+                if (onCameraInitListener != null) {
+                    onCameraInitListener.onDeviceEnumerated(0);
+                }
             }
         } else {
             refreshMsg("未枚举到设备");
+            // 通知设备枚举完成，但没有发现设备
+            if (onCameraInitListener != null) {
+                onCameraInitListener.onDeviceEnumerated(0);
+            }
         }
     }
 
     @Override
     public void connectCamera() {
+        // 通知开始连接设备
+        if (onCameraInitListener != null) {
+            onCameraInitListener.onDeviceConnecting();
+        }
+        
         // 打开相机
         if (openDeviceThread == null) {
             openDeviceThread = new OpenDeviceThread();
@@ -123,6 +171,7 @@ public class HkIndustryCamera implements ICamera {
     public void captureExecute(String from) {
         this.from = from;
         isCapture = true;
+        isCaptureCompleted = false; // 重置抓图完成标志位
         refreshMsg("===capture===");
         // 取流
         if (startGrabThread == null) {
@@ -176,6 +225,7 @@ public class HkIndustryCamera implements ICamera {
 
         isCapture = false;
         isPreview = false;
+        isCaptureCompleted = false; // 重置抓图完成标志位
         from = AppContants.CaptureSource.CAPTURE_SOURCE_TASK;
         if (cameraManager != null) {
             cameraManager.stopDevice();
@@ -199,23 +249,53 @@ public class HkIndustryCamera implements ICamera {
         this.onCaptureListener = onCaptureListener;
     }
 
+    @Override
+    public void setOnCameraInitListener(CameraInitListener onCameraInitListener) {
+        this.onCameraInitListener = onCameraInitListener;
+    }
+    
+    /**
+     * 设置抓图延迟时间
+     * @param delayMs 延迟时间（毫秒）
+     */
+    public void setCaptureDelayMs(long delayMs) {
+        this.captureDelayMs = delayMs;
+    }
+    
+    /**
+     * 获取当前抓图延迟时间
+     * @return 延迟时间（毫秒）
+     */
+    public long getCaptureDelayMs() {
+        return this.captureDelayMs;
+    }
+
     class GetOneFrameThread extends Thread {
         boolean runGetFrameFlag = true;
         byte[] bytes = null;
         MvCameraControlDefines.MV_FRAME_OUT_INFO info = new MvCameraControlDefines.MV_FRAME_OUT_INFO();
+        // 抓图模式延迟相关变量
+        private long captureStartTime = 0;
 
         @Override
         public void run() {
             super.run();
             refreshMsg("===GetOneFrameThread===");
+            
+            if (cameraManager == null) {
+                refreshMsg("相机管理器未初始化");
+                unInitCamera();
+                return;
+            }
+            
             Integer width = new Integer(0);
             Integer height = new Integer(0);
 
-            /*cameraManager.setIntValue("Width", 5472);
-            cameraManager.setIntValue("Height", 3648);*/
+            cameraManager.setIntValue("Width", 5472);
+            cameraManager.setIntValue("Height", 3648);
 
-            cameraManager.setIntValue("Width", 4096);
-            cameraManager.setIntValue("Height", 2370);
+            /*cameraManager.setIntValue("Width", 4096);
+            cameraManager.setIntValue("Height", 2370);*/
             int nRetW = cameraManager.getIntValue("Width", width);
             int nRetH = cameraManager.getIntValue("Height", height);
 
@@ -233,7 +313,6 @@ public class HkIndustryCamera implements ICamera {
                 return;
             }
 
-
             while (runGetFrameFlag) {
                 int nRet = cameraManager.getOneFrameTimeout(bytes, info, 1000);
                 if (nRet == 0) {
@@ -243,28 +322,86 @@ public class HkIndustryCamera implements ICamera {
                     }
 
                     Bitmap bitmap = ImageUtils.rgb2Bitmap(bytes, width, height);
+                    
+                    // 如果是第一次获取到帧，通知第一帧回调和初始化完成
+                    if (!isFirstFrameReceived) {
+                        isFirstFrameReceived = true;
+                        // 通知获取到第一帧
+                        if (onCameraInitListener != null) {
+                            onCameraInitListener.onFirstFrameReceived();
+                        }
+                        // 通知相机初始化完成，设备就绪
+                        if (onCameraInitListener != null) {
+                            onCameraInitListener.onInitCompleted();
+                        }
+                    }
+                    
+                    // 如果是抓图模式且还未开始计时，在获取到第一帧时开始计时
+                    if (isCapture && captureStartTime == 0) {
+                        captureStartTime = System.currentTimeMillis();
+                        refreshMsg("获取到第一帧，开始延迟计时，等待" + (captureDelayMs / 1000) + "秒后开始抓图...");
+                        // 只有手动拍照才通知抓图开始（显示进度弹窗）
+                        if (onCaptureListener != null && TextUtils.equals(from, AppContants.CaptureSource.CAPTURE_SOURCE_HAND)) {
+                            onCaptureListener.onCaptureStart(captureDelayMs);
+                        }
+                    }
+                    
                     // 预览模式
                     if (previewListener != null && isPreview) {
                         previewListener.updateBitmap(bitmap);
                     }
                     // 抓图模式
-                    if (isCapture) {
-                        String picName = TimeUtils.millis2String(System.currentTimeMillis(),
-                                new SimpleDateFormat("yyyyMMddHHmmss")) + ".jpg";
-                        //文件保存到内存
-                        ImageUtils.saveImage(bitmap, picName);
-                        //文件地址保存到数据库
-                        PicturePathBean data = new PicturePathBean();
-                        data.setPath(picName);
-                        data.save();
-                        File file = FileUtils.getFileFromSdcard(picName);
+                    if (isCapture && !isCaptureCompleted && captureStartTime > 0) {
+                        // 检查是否已经等待了设定的延迟时间
+                        long currentTime = System.currentTimeMillis();
+                        if (currentTime - captureStartTime >= captureDelayMs) {
+                            // 设置标志位，防止重复抓图
+                            isCaptureCompleted = true;
+                            refreshMsg("倒计时完毕，正在处理截图...");
+                            
+                            // 通知开始处理截图（保存图片和数据）
+                            if (onCaptureListener != null && TextUtils.equals(from, AppContants.CaptureSource.CAPTURE_SOURCE_HAND)) {
+                                onCaptureListener.onCaptureProcessing();
+                            }
+                            
+                            String picName = TimeUtils.millis2String(System.currentTimeMillis(),
+                                    new SimpleDateFormat("yyyyMMddHHmmss")) + ".jpg";
+                            //文件保存到内存
+                            ImageUtils.saveImage(bitmap, picName);
+                            //文件地址保存到数据库
+                            PicturePathBean data = new PicturePathBean();
+                            data.setPath(picName);
+                            data.save();
+                            File file = FileUtils.getFileFromSdcard(picName);
 
-                        if (null != onCaptureListener) {
-                            if (TextUtils.equals(from, AppContants.CaptureSource.CAPTURE_SOURCE_HAND)) {
-                                onCaptureListener.onCaptureFinish(bitmap, file, picName);
+                            if (null != onCaptureListener) {
+                                if (TextUtils.equals(from, AppContants.CaptureSource.CAPTURE_SOURCE_HAND)) {
+                                    if (bitmap != null) {
+                                        refreshMsg("抓图成功，准备显示图片，图片尺寸: " + bitmap.getWidth() + "x" + bitmap.getHeight());
+                                        onCaptureListener.onCaptureFinish(bitmap, file, picName);
+                                    } else {
+                                        refreshMsg("抓图失败：bitmap为空");
+                                    }
+                                }
+                            }
+                            // 延迟关闭相机，确保回调能够正确执行
+                            new Thread(() -> {
+                                try {
+                                    Thread.sleep(1000); // 等待1秒确保回调执行完成
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+                                unInitCamera();
+                            }).start();
+                        } else {
+                            // 还没到设定时间，继续等待
+                            long remainingTime = captureDelayMs - (currentTime - captureStartTime);
+                            refreshMsg("等待中...剩余时间: " + (remainingTime / 1000) + "秒");
+                            // 只有手动拍照才通知进度更新（显示进度弹窗）
+                            if (onCaptureListener != null && TextUtils.equals(from, AppContants.CaptureSource.CAPTURE_SOURCE_HAND)) {
+                                onCaptureListener.onCaptureProgress(remainingTime, captureDelayMs);
                             }
                         }
-                        unInitCamera();
                     }
                 }
             }
@@ -292,6 +429,10 @@ public class HkIndustryCamera implements ICamera {
 
             if (nRet != MV_OK) {
                 refreshMsg("OpenDevice fail nRet = " + Integer.toHexString(nRet));
+                // 通知设备连接失败
+                if (onCameraInitListener != null) {
+                    onCameraInitListener.onDeviceConnectFailed("设备连接失败，错误码: " + Integer.toHexString(nRet));
+                }
                 nRet = cameraManager.closeDevice();
                 if (nRet != MV_OK) {
                     refreshMsg("closeDevice fail nRet = " + Integer.toHexString(nRet));
@@ -299,6 +440,11 @@ public class HkIndustryCamera implements ICamera {
                     refreshMsg("=== closeDevice success ===");
                 }
                 return;
+            }
+            
+            // 通知设备连接成功
+            if (onCameraInitListener != null) {
+                onCameraInitListener.onDeviceConnected();
             }
         }
     }
@@ -309,6 +455,10 @@ public class HkIndustryCamera implements ICamera {
             super.run();
 
             refreshMsg("===StartGrab====");
+            // 通知开始获取图像流
+            if (onCameraInitListener != null) {
+                onCameraInitListener.onStartGrabbing();
+            }
             setCameraConfig();
             if (!deviceList.isEmpty() && deviceList.get(selectDeviceNum).transportLayerType == MvCameraControlDefines.MV_GIGE_DEVICE) {
 
@@ -413,7 +563,8 @@ public class HkIndustryCamera implements ICamera {
     }
 
     private void refreshMsg(String msg) {
-        LogUtil.i(msg);
+        String message = (msg != null) ? msg : "";
+        LogUtil.i(message);
     }
 
 }

@@ -19,6 +19,7 @@ import com.sczg.apple.runtimepermission.PermissionsResultAction;
 import com.sczg.apple.utils.AppMsgUtil;
 import com.alibaba.android.arouter.facade.annotation.Route;
 import com.alibaba.android.arouter.launcher.ARouter;
+import com.orhanobut.logger.Logger;
 
 import butterknife.BindView;
 
@@ -67,9 +68,14 @@ public class SplashActivity extends BaseActivity<SplashPresenter, ISplashView> i
 
     @Override
     public void enterMain() {
-        ARouter.getInstance().build(AppContants.ARouterUrl.MAIN_ACTIVITY)
-                .navigation();
-
+        Logger.d("准备跳转到主界面: %s", AppContants.ARouterUrl.MAIN_ACTIVITY);
+        try {
+            ARouter.getInstance().build(AppContants.ARouterUrl.MAIN_ACTIVITY)
+                    .navigation();
+            Logger.d("主界面跳转成功");
+        } catch (Exception e) {
+            Logger.e(e, "主界面跳转失败");
+        }
     }
 
 

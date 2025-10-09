@@ -19,8 +19,6 @@ public class NetLoadingHelper implements NetLoadingInterface {
                 .setContentHolder(mLoadingHolder)
                 .setGravity(Gravity.CENTER)
                 .setCancelable(true)
-                .setContentBackgroundResource(Color.TRANSPARENT)
-                .setOverlayBackgroundResource(Color.TRANSPARENT)
                 .create();
     }
 

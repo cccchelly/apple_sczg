@@ -13,6 +13,9 @@ public class ShareUtil {
     private static final String TIME_TASK_KEY = "time_task_key";
     private static final String LOCATION_LAT_KEY = "location_lat_key";
     private static final String LOCATION_LNG_KEY = "location_lng_key";
+    // 抓图延迟时间（毫秒）
+    private static final String CAPTURE_DELAY_KEY = "capture_delay_key";
+    private static final long DEFAULT_CAPTURE_DELAY = 5000; // 默认5秒
 
     public static SharedPreferences getShare() {
         SharedPreferences sharedPreferences = App.getAppContext().getSharedPreferences(SHARE_NAME, Context.MODE_PRIVATE);
@@ -70,5 +73,39 @@ public class ShareUtil {
         return lng;
     }
 
+    // 抓图延迟时间
+    /**
+     * 保存抓图延迟时间（毫秒）
+     * @param delayMs 延迟时间（毫秒）
+     */
+    public static void saveCaptureDelay(long delayMs) {
+        SharedPreferences.Editor editor = getShare().edit();
+        editor.putLong(CAPTURE_DELAY_KEY, delayMs);
+        editor.apply();
+    }
+
+    /**
+     * 获取抓图延迟时间（毫秒）
+     * @return 延迟时间（毫秒），默认5000毫秒
+     */
+    public static long getCaptureDelay() {
+        return getShare().getLong(CAPTURE_DELAY_KEY, DEFAULT_CAPTURE_DELAY);
+    }
+
+    /**
+     * 获取抓图延迟时间（秒）
+     * @return 延迟时间（秒），默认5秒
+     */
+    public static int getCaptureDelaySeconds() {
+        return (int) (getCaptureDelay() / 1000);
+    }
+
+    /**
+     * 保存抓图延迟时间（秒）
+     * @param delaySeconds 延迟时间（秒）
+     */
+    public static void saveCaptureDelaySeconds(int delaySeconds) {
+        saveCaptureDelay(delaySeconds * 1000L);
+    }
 
 }

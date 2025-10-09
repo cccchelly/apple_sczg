@@ -1,5 +1,7 @@
 package com.sczg.apple.camrea;
 import com.sczg.apple.utils.PictureCleanUtil;
+import com.sczg.apple.utils.ShareUtil;
+import com.orhanobut.logger.Logger;
 
 public class CameraNormalManager implements ICamera {
 
@@ -72,9 +74,28 @@ public class CameraNormalManager implements ICamera {
         iCamera.setOnCaptureListener(onCaptureListener);
     }
 
+    @Override
+    public void setOnCameraInitListener(CameraInitListener onCameraInitListener) {
+        iCamera.setOnCameraInitListener(onCameraInitListener);
+    }
+    
+    @Override
+    public void setCaptureDelayMs(long delayMs) {
+        iCamera.setCaptureDelayMs(delayMs);
+    }
+    
+    @Override
+    public long getCaptureDelayMs() {
+        return iCamera.getCaptureDelayMs();
+    }
+
     public static void taskCapturePhoto(String from) {
         new Thread(() -> {
             CameraNormalManager cameraNormalManager = CameraNormalManager.getInstance();
+            // 从设置中读取抓图延迟时间并应用到定时任务
+            long captureDelayMs = ShareUtil.getCaptureDelay();
+            cameraNormalManager.setCaptureDelayMs(captureDelayMs);
+            
             cameraNormalManager.initCamera();
             cameraNormalManager.connectCamera();
             try {

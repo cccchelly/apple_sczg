@@ -24,5 +24,13 @@ public interface ICamera {
 
     //设置拍照监听
     void setOnCaptureListener(CaptureListener onCaptureListener);
-
+    
+    //设置相机初始化监听
+    void setOnCameraInitListener(CameraInitListener onCameraInitListener);
+    
+    //设置抓图延迟时间
+    void setCaptureDelayMs(long delayMs);
+    
+    //获取抓图延迟时间
+    long getCaptureDelayMs();
 }

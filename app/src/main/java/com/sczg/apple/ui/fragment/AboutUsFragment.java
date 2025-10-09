@@ -54,7 +54,7 @@ public class AboutUsFragment extends BaseFragment<AboutPresenter, IAboutView> im
 
     @Override
     public Animation onCreateAnimation(int transit, boolean enter, int nextAnim) {
-        if (enter) {
+        if (enter && getActivity() != null) {
             return AnimationUtils.loadAnimation(getActivity(), R.anim.activity_anim_in);
         } else {
             return super.onCreateAnimation(transit, enter, nextAnim);

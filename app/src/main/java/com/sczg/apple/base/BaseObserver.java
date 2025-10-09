@@ -70,7 +70,8 @@ public abstract class BaseObserver<T extends BaseResponse> implements Observer<T
 
     @Override
     public void onError(@NonNull Throwable e) {
-        Logger.e("onError: " + e.toString());
+        String errorMsg = (e != null) ? e.toString() : "Unknown error";
+        Logger.e("onError: " + errorMsg);
         if (null != mIBaseView) {
             mIBaseView.dissmissLoadingView();
         }
@@ -87,8 +88,9 @@ public abstract class BaseObserver<T extends BaseResponse> implements Observer<T
     public abstract void onSuccess(T response);
 
     protected void onDataFailure(T response) {
-        String msg = response.getMsg();
-        Logger.w("request failure:" + msg);
+        String msg = (response != null) ? response.getMsg() : null;
+        String logMsg = (msg != null) ? msg : "null";
+        Logger.w("request failure:" + logMsg);
         if (!TextUtils.isEmpty(msg)) {
             Toast.makeText(App.getAppContext(), msg, Toast.LENGTH_SHORT).show();
         } else {

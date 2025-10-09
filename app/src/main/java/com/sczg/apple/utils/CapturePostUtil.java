@@ -50,27 +50,138 @@ public class CapturePostUtil {
     }
 
     public static void normalPost(final File file, final String picName) {
-        postCompress(file, picName);
+        // 直接上传原图，不进行压缩
+        LogUtil.d("直接上传原图，跳过压缩: " + picName);
+        uploadCompressedFile(file, picName);
+        
+        // 注释掉压缩逻辑，保留以备后用
+        // postCompressWithLossless(file, picName);
     }
 
     private static String TAG = CapturePostUtil.class.getName();
 
-    static void postCompress(File data, final String name) {
-        final Bitmap image = BitmapFactory.decodeFile(data.getAbsolutePath());
+    /**
+     * 使用无损压缩进行图片处理和上传
+     * 注释掉以备后用 - 当前直接上传原图不压缩
+     * @param data 原始图片文件
+     * @param name 图片名称
+     */
+    /*
+    static void postCompressWithLossless(File data, final String name) {
+        LogUtil.d("开始无损压缩图片: " + name);
+        
+        // 使用新的无损压缩工具类
+        LosslessImageCompressUtil.compressImage(App.getAppContext(), data, 
+            new LosslessImageCompressUtil.CompressCallback() {
+                @Override
+                public void onSuccess(File compressedFile, long originalSize, long compressedSize) {
+                    // 计算压缩率
+                    double compressionRatio = LosslessImageCompressUtil.getCompressionRatio(originalSize, compressedSize);
+                    
+                    LogUtil.d("图片压缩成功: " + name);
+                    LogUtil.d("原始大小: " + LosslessImageCompressUtil.formatFileSize(originalSize));
+                    LogUtil.d("压缩后大小: " + LosslessImageCompressUtil.formatFileSize(compressedSize));
+                    LogUtil.d("压缩率: " + String.format("%.1f%%", compressionRatio));
+                    
+                    // 显示压缩结果给用户
+                    String compressionInfo = String.format("图片压缩完成\n原始: %s\n压缩后: %s\n压缩率: %.1f%%", 
+                        LosslessImageCompressUtil.formatFileSize(originalSize),
+                        LosslessImageCompressUtil.formatFileSize(compressedSize),
+                        compressionRatio);
+                    ToastUtils.showToast(compressionInfo);
+                    
+                    // 直接上传压缩后的文件
+                    uploadCompressedFile(compressedFile, name);
+                }
+                
+                @Override
+                public void onError(Throwable error) {
+                    LogUtil.e("图片压缩失败: " + error.getMessage());
+                    ToastUtils.showToast("图片压缩失败: " + error.getMessage());
+                    
+                    // 压缩失败时使用原文件上传
+                    LogUtil.d("压缩失败，使用原文件上传");
+                    uploadCompressedFile(data, name);
+                }
+            });
+    }
+    */
 
-        new Thread(() -> {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            //image.compress(Bitmap.CompressFormat.JPEG, 100, baos);// 质量压缩方法，这里100表示不压缩，把压缩后的数据存放到baos中
-            int options = 100;
-            //while (baos.toByteArray().length / 1024 > 100) { // 循环判断如果压缩后图片是否大于100kb,大于继续压缩
-            baos.reset(); // 重置baos即清空baos
-            image.compress(Bitmap.CompressFormat.JPEG, options, baos);// 这里压缩options%，把压缩后的数据存放到baos中
-            //options -= 10;// 每次都减少10
-            //}
-            ByteArrayInputStream isBm = new ByteArrayInputStream(baos.toByteArray());// 把压缩后的数据baos存放到ByteArrayInputStream中
-            Bitmap bitmap = BitmapFactory.decodeStream(isBm, null, null);// 把ByteArrayInputStream数据生成图片
-            saveCompressImg(name, bitmap, getNewPicName(name), App.getAppContext());
-        }).start();
+    /**
+     * 上传文件（可以是压缩后的文件或原始文件）
+     * @param file 要上传的文件
+     * @param originalName 原始文件名
+     */
+    static void uploadCompressedFile(File file, String originalName) {
+        try {
+            LogUtil.d("开始上传图片: " + originalName);
+            
+            RequestBody requestFile = RequestBody.create(MediaType.parse("multipart/form-data"), file);
+            MultipartBody.Part filePart = MultipartBody.Part.createFormData("file", file.getName(), requestFile);
+
+            PostPicMessageBean postPicMessageBean = new PostPicMessageBean(
+                AppMsgUtil.getIMEI(App.getAppContext()), 
+                originalName.split("\\.")[0]
+            );
+            
+            AppDataManager.getInstance()
+                    .uploadFile(filePart, postPicMessageBean.getDeviceId(), postPicMessageBean.getTime())
+                    .subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe(new BaseResponseObserver<ResponseBody>() {
+                        @Override
+                        public void onSuccess(ResponseBody response) {
+                            LogUtil.d("图片上传成功: " + originalName);
+                            ToastUtils.showToast("图片:" + originalName + "上传成功");
+                            
+                            try {
+                                // 数据库删除文件名，删除文件
+                                DataSupport.deleteAll(PicturePathBean.class, "path = ?", originalName);
+                                
+                                // 删除原始文件
+                                File originalFile = FileUtils.getFileFromSdcard(originalName);
+                                if (originalFile != null && originalFile.exists()) {
+                                    FileUtils.deleteFile(originalFile.getAbsolutePath());
+                                }
+                                
+                                // 删除上传的临时文件（如果不是原文件）
+                                if (!file.getAbsolutePath().equals(originalFile.getAbsolutePath())) {
+                                    FileUtils.deleteFile(file.getAbsolutePath());
+                                }
+                                
+                                // 递归上传下一张图片
+                                findLocalPic();
+                                
+                            } catch (Exception e) {
+                                LogUtil.e("清理文件失败: " + e.getMessage());
+                                e.printStackTrace();
+                            }
+                        }
+                        
+                        @Override
+                        public void onError(Throwable e) {
+                            LogUtil.e("图片上传失败: " + e.getMessage());
+                            ToastUtils.showToast("图片上传失败: " + e.getMessage());
+                        }
+                    });
+                    
+        } catch (Exception e) {
+            LogUtil.e("准备上传文件时发生异常: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * @deprecated 已废弃的压缩方法，现在直接上传原图
+     */
+    @Deprecated
+    static void postCompress(File data, final String name) {
+        // 直接上传原图，不进行压缩
+        LogUtil.d("postCompress: 直接上传原图，跳过压缩: " + name);
+        uploadCompressedFile(data, name);
+        
+        // 注释掉压缩逻辑，保留以备后用
+        // postCompressWithLossless(data, name);
     }
 
     private static String getNewPicName(String oldName) {
@@ -85,7 +196,11 @@ public class CapturePostUtil {
     }
 
 
-    /// 保存
+    /**
+     * @deprecated 已废弃的保存压缩图片方法，使用uploadCompressedFile替代
+     * 保存压缩图片并上传
+     */
+    @Deprecated
     public static boolean saveCompressImg(final String oldName, Bitmap bitmap, final String newName, Context context) {
         try {
             String dir = Environment.getExternalStorageDirectory().getAbsolutePath();
